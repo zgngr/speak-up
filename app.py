@@ -13,7 +13,7 @@ def improve_speech(client, speech):
         {"role": "assistant", "content": 'You are a english expert. Improve my text. Make it simple, shorter and easy to understand.'}, 
         {"role": "user", "content": speech}
     ]
-    response = client.chat.completions.create(model="gpt-4", messages=prompt)
+    response = client.chat.completions.create(model="gpt-3.5-turbo", messages=prompt)
     improved_speech = response.choices[0].message.content
     return improved_speech
 
@@ -34,7 +34,7 @@ with gr.Blocks() as ui:
 
     with gr.Column():
         api_key = gr.Textbox(label="OpenAI API key", placeholder="Enter you key...", lines=1, max_lines=1)
-        audio = gr.Audio(sources=["microphone"], type="filepath", label="Record your speech", max_length=20)
+        audio = gr.Audio(sources=["microphone"], type="filepath", label="Record your speech", max_length=30)
         run_btn = gr.Button("Speak UP!")
     
     with gr.Column(visible=False) as results:
@@ -46,27 +46,27 @@ with gr.Blocks() as ui:
         #### input validation
         if not api_key:
             raise gr.Error("Missing API Key!")
-
+        
         if not speech:
             raise gr.Error("Record something!")
 
         #### saving speech
         file_path = "speech.wav"
         shutil.copyfile(speech, file_path)
-
-        audio_segment = AudioSegment.from_file(file_path)
-        duration_seconds = len(audio_segment) / 1000
-        if duration_seconds > 20:
-            raise gr.Error("Audio input should not be longer than 20 seconds.")
     
-        gr.Info("Starting process...")
         #### OpenAI calls
         client = OpenAI(api_key=api_key)
+        try:
+            print(client.models.list())
+        except Exception as e:
+            raise gr.Error("Invalid API Key. " + str(e))
+
+        gr.Info("Starting process...")
         original_transcript = speech_to_text(client, open(file_path, "rb"))
         improved_transcript = improve_speech(client, original_transcript)
     
         #### diff
-        diff = diff_texts(original_transcript, improved_transcript)
+        diff = diff_texts(improved_transcript, original_transcript)
 
         return {
             results: gr.Column(visible=True),
@@ -74,7 +74,7 @@ with gr.Blocks() as ui:
             text_improved_transcript: improved_transcript, 
             text_diff: diff
         }
-
+    
     def show_components():
         return {
             results: gr.Column(visible=True),
