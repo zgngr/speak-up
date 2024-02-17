@@ -37,12 +37,12 @@ with gr.Blocks() as ui:
 
     with gr.Column():
         audio = gr.Audio(sources=["microphone"], type="filepath", label="Record your speech", max_length=20)
-        run_btn = gr.Button("Improve my speech")
+        run_btn = gr.Button("Speak UP!")
     
     with gr.Column(visible=False) as results:
-        text_original_transcript = gr.Text(label="Original", visible=True)
-        text_improved_transcript = gr.Text(label="Improved", visible=True)
-        text_diff = gr.Text(label="Diff", visible=True)
+        text_original_transcript = gr.Text(label="Original transcript:", lines=3)
+        text_improved_transcript = gr.Text(label="Improved transcript:", lines=3)
+        text_diff =  gr.HighlightedText(label="Diff", combine_adjacent=True, show_legend=True, color_map={"+": "red", "-": "green"})
 
     def run(speech):
         #### input validation
@@ -72,7 +72,13 @@ with gr.Blocks() as ui:
             text_diff: diff
         }
 
-    run_btn.click(run, inputs=audio, outputs=[results, text_original_transcript, text_improved_transcript, text_diff])
+    def visible_components():
+        return {
+            results: gr.Column(visible=True),
+            text_original_transcript: "", 
+            text_improved_transcript: "", 
+            text_diff: ""
+        }
 
     def reset():
         return {
@@ -81,6 +87,16 @@ with gr.Blocks() as ui:
             text_improved_transcript: "",
             text_diff: ""
         }
+    
+    run_btn.click(
+        visible_components, 
+        inputs=None, 
+        outputs=[results, text_original_transcript, text_improved_transcript, text_diff]
+    ).then(
+        run, 
+        inputs=audio, 
+        outputs=[results, text_original_transcript, text_improved_transcript, text_diff]
+    )
 
     audio.clear(reset, None, outputs=[results, text_original_transcript, text_improved_transcript, text_diff])
 
