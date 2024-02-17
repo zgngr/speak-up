@@ -1,7 +1,6 @@
 import shutil
 import gradio as gr
 from openai import OpenAI
-from pydub import AudioSegment
 from difflib import Differ
 
 def speech_to_text(client, speech):
@@ -26,7 +25,7 @@ def diff_texts(text1, text2):
 
 with gr.Blocks() as ui:
     with gr.Column():
-        welcome =gr.Markdown(
+        welcome = gr.Markdown(
         """
         # Speak UP!
         A toy LLM app for helping you to level up your speeches.
