@@ -1,4 +1,3 @@
-import shutil
 import gradio as gr
 from openai import OpenAI
 from difflib import Differ
@@ -33,8 +32,8 @@ with gr.Blocks() as ui:
 
     with gr.Column():
         api_key = gr.Textbox(label="OpenAI API key", placeholder="Enter you key...", lines=1, max_lines=1)
-        audio = gr.Audio(sources=["microphone"], type="filepath", label="Record your speech", max_length=30)
-        run_btn = gr.Button("Speak UP!")
+        audio = gr.Audio(sources=["microphone"], type="filepath", label="Record your speech up to 30 sec", max_length=30)
+        run_btn = gr.Button("Speak UP!", visible=False)
     
     with gr.Column(visible=False) as results:
         text_original_transcript = gr.Text(label="Original transcript:", lines=3)
@@ -48,11 +47,9 @@ with gr.Blocks() as ui:
         
         if not speech:
             raise gr.Error("Record something!")
+        
+        gr.Info("Processing...")
 
-        #### saving speech
-        file_path = "speech.wav"
-        shutil.copyfile(speech, file_path)
-    
         #### OpenAI calls
         client = OpenAI(api_key=api_key)
         try:
@@ -60,8 +57,7 @@ with gr.Blocks() as ui:
         except Exception as e:
             raise gr.Error("Invalid API Key. " + str(e))
 
-        gr.Info("Starting process...")
-        original_transcript = speech_to_text(client, open(file_path, "rb"))
+        original_transcript = speech_to_text(client, open(speech, "rb"))
         improved_transcript = improve_speech(client, original_transcript)
     
         #### diff
@@ -87,14 +83,21 @@ with gr.Blocks() as ui:
             results: gr.Column(visible=False),
             text_original_transcript: "", 
             text_improved_transcript: "",
-            text_diff: ""
+            text_diff: "",
+            run_btn : gr.Button("Speak UP!", visible=False)
         }
     
+    def run_btn_toggle():
+        return { run_btn : gr.Button("Speak UP!", visible=True) }
+
     #### events
 
     run_btn.click(run, inputs=[api_key, audio], outputs=[results, text_original_transcript, text_improved_transcript, text_diff])
 
-    audio.clear(hide_components, None, outputs=[results, text_original_transcript, text_improved_transcript, text_diff])
+    audio.clear(hide_components, None, outputs=[results, text_original_transcript, text_improved_transcript, text_diff, run_btn])
+
+    audio.stop_recording(run_btn_toggle, None, outputs=[run_btn])
+
 
 if __name__ == "__main__":
-    ui.launch()
+    ui.launch(share=True)

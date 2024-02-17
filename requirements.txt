@@ -1,4 +1,2 @@
 openai
 gradio
-numpy
-python-dotenv
