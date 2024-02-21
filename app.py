@@ -1,19 +1,55 @@
 import gradio as gr
 from openai import OpenAI
 from difflib import Differ
+from pydub import AudioSegment
 
-def speech_to_text(client, speech):
-    transcript = client.audio.transcriptions.create(model="whisper-1", file=speech, response_format="text")
-    return transcript
+def recognize_speech(api_key, audio):
+  if not api_key:
+     raise gr.Error("Missing API Key!")
 
-def improve_speech(client, speech):
-    prompt = [
-        {"role": "assistant", "content": 'You are a english expert. Improve my text. Make it simple, shorter and easy to understand.'}, 
-        {"role": "user", "content": speech}
-    ]
-    response = client.chat.completions.create(model="gpt-3.5-turbo", messages=prompt)
-    improved_speech = response.choices[0].message.content
-    return improved_speech
+  client = OpenAI(api_key=api_key)
+  try:
+     print(client.models.list())
+  except Exception as e:
+      print(str(e))
+      raise gr.Error("Invalid API Key.")
+  
+  if not audio:
+    raise gr.Error("Missing record!")
+  
+  audio_segment = AudioSegment.from_file(audio)
+  duration_seconds = len(audio_segment) / 1000
+  
+  if duration_seconds > 30 :
+    raise gr.Error( "Audio input should not be longer than 30 seconds.")
+  
+  transcript = client.audio.transcriptions.create(model="whisper-1", file=open(audio, "rb"), response_format="text")
+  
+  return transcript
+
+def improve_speech(api_key, speech):
+  if not speech:
+     raise gr.Info("Record or type something!")
+
+  if not api_key:
+     raise gr.Error("Missing API Key!")
+
+  client = OpenAI(api_key=api_key)
+  try:
+      print(client.models.list())
+  except Exception as e:
+      print(str(e))
+      raise gr.Error("Invalid API Key.")
+  
+  prompt = [
+     {"role": "assistant", "content": 'You are a english expert. Improve my text. Make it simple, shorter and easy to understand.'}, 
+     {"role": "user", "content": speech}
+  ]
+
+  response = client.chat.completions.create(model="gpt-3.5-turbo", messages=prompt)
+  improved_speech = response.choices[0].message.content
+  
+  return improved_speech
 
 def diff_texts(text1, text2):
     d = Differ()
@@ -22,82 +58,52 @@ def diff_texts(text1, text2):
         for token in d.compare(text1, text2)
     ]
 
+def toggle_main_col(api_key):
+  if not api_key:
+     return { main_col: gr.Column(visible=False)}
+
+  return { main_col: gr.Column(visible=True)}
+   
 with gr.Blocks() as ui:
-    with gr.Column():
-        welcome = gr.Markdown(
-        """
-        # Speak UP!
-        A toy LLM app for helping you to level up your speeches.
-        """)
-
-    with gr.Column():
-        api_key = gr.Textbox(label="OpenAI API key", placeholder="Enter you key...", lines=1, max_lines=1)
-        audio = gr.Audio(sources=["microphone"], type="filepath", label="Record your speech up to 30 sec", max_length=30)
-        run_btn = gr.Button("Speak UP!", visible=False)
-    
-    with gr.Column(visible=False) as results:
-        text_original_transcript = gr.Text(label="Original transcript:", lines=3)
-        text_improved_transcript = gr.Text(label="Improved transcript:", lines=3)
-        text_diff = gr.HighlightedText(label="Diff", combine_adjacent=True, show_legend=True, color_map={"+": "red", "-": "green"})
-
-    def run(api_key, speech):
-        #### input validation
-        if not api_key:
-            raise gr.Error("Missing API Key!")
+  
+  welcome = gr.Markdown(
+    """
+    # Speak UP! 
         
-        if not speech:
-            raise gr.Error("Record something!")
-        
-        gr.Info("Processing...")
+    Speak UP! is an interactive web application designed to help users enhance their speech delivery by leveraging the power of Large Language Models (LLMs). 
+    The app allows users to record their speech, transcribes the audio to text, then improves the text to be simpler, shorter, and easier to understand. 
+    Additionally, it provides a comparison between the original and improved texts, highlighting the changes made.
 
-        #### OpenAI calls
-        client = OpenAI(api_key=api_key)
-        try:
-            print(client.models.list())
-        except Exception as e:
-            raise gr.Error("Invalid API Key. " + str(e))
+    ## Features
+    - **Audio Recording**: Users can record their speech directly within the app using their device's microphone.
+    - **Speech Transcription**: The app transcribes the recorded speech to text using the OpenAI Whisper model.
+    - **Text Improvement**: Utilizes OpenAI's GPT models to refine the speech text, focusing on simplicity, brevity, and clarity.
+    - **Difference Highlighting**: Displays the differences between the original and improved texts, with changes clearly marked for easy review.
 
-        original_transcript = speech_to_text(client, open(speech, "rb"))
-        improved_transcript = improve_speech(client, original_transcript)
+    ## Requirements
+    - A valid OpenAI API key.
+    - A modern web browser with microphone access.
+    """)
+  
+  api_key = gr.Textbox(label="OpenAI API key", placeholder="Enter you key...", lines=1, max_lines=1)
+  
+  with gr.Column(visible=False) as main_col:
+    audio = gr.Audio(sources=["microphone"], type="filepath", label="Record your speech up to 30 sec")
+    transcript = gr.Textbox(label="Original Transcript:", lines=4)
+    improved_transcript = gr.Textbox(label="Improved Transcript:", lines=4)
+    text_diff = gr.HighlightedText(label="Diff", combine_adjacent=True, show_legend=True, color_map={"+": "red", "-": "green"})
     
-        #### diff
-        diff = diff_texts(improved_transcript, original_transcript)
+    recognize_speech_button = gr.Button("Recognize Speech")
+    improve_speech_button = gr.Button("Improve Speech")
+          
+  # events
+  api_key.change(toggle_main_col, inputs=[api_key], outputs=[main_col])
+  
+  recognize_speech_button.click(recognize_speech, inputs=[api_key, audio], outputs=[transcript])
+  improve_speech_button.click(improve_speech, inputs=[api_key, transcript], outputs=[improved_transcript])
+  
+  transcript.change(diff_texts, inputs=[improved_transcript, transcript], outputs=[text_diff])
+  improved_transcript.change(diff_texts, inputs=[improved_transcript, transcript], outputs=[text_diff])
 
-        return {
-            results: gr.Column(visible=True),
-            text_original_transcript: original_transcript, 
-            text_improved_transcript: improved_transcript, 
-            text_diff: diff
-        }
-    
-    def show_components():
-        return {
-            results: gr.Column(visible=True),
-            text_original_transcript: "", 
-            text_improved_transcript: "", 
-            text_diff: ""
-        }
-
-    def hide_components():
-        return {
-            results: gr.Column(visible=False),
-            text_original_transcript: "", 
-            text_improved_transcript: "",
-            text_diff: "",
-            run_btn : gr.Button("Speak UP!", visible=False)
-        }
-    
-    def run_btn_toggle():
-        return { run_btn : gr.Button("Speak UP!", visible=True) }
-
-    #### events
-
-    run_btn.click(run, inputs=[api_key, audio], outputs=[results, text_original_transcript, text_improved_transcript, text_diff])
-
-    audio.clear(hide_components, None, outputs=[results, text_original_transcript, text_improved_transcript, text_diff, run_btn])
-
-    audio.stop_recording(run_btn_toggle, None, outputs=[run_btn])
-
-
-if __name__ == "__main__":
-    ui.launch(share=True)
+ui.queue(max_size=10)
+ui.launch()
