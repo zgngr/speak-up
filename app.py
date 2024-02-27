@@ -1,4 +1,5 @@
 import gradio as gr
+import string
 from openai import OpenAI
 from difflib import Differ
 from pydub import AudioSegment
@@ -52,11 +53,16 @@ def improve_speech(api_key, speech):
   return improved_speech
 
 def diff_texts(text1, text2):
+    text1, text2 = remove_punctuation(text1), remove_punctuation(text2)
+
     d = Differ()
     return [
         (token[2:], token[0] if token[0] != " " else None)
         for token in d.compare(text1, text2)
     ]
+
+def remove_punctuation(s):
+    return s.translate(str.maketrans('', '', string.punctuation))
 
 def toggle_main_col(api_key):
   if not api_key:
