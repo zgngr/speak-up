@@ -1,19 +1,58 @@
 import gradio as gr
-import string
 from openai import OpenAI
-from difflib import Differ
+from datetime import datetime
 from pydub import AudioSegment
+from functools import lru_cache
+from utils import diff_texts, remove_punctuation, SPEAK_UP_MARKDOWN
+from prompts import SEMANTIC_ZOOM_PROMPT, SPEECH_IMPROVEMENT_PROMPT, EXTRACT_WIZDOM_PROMPT
+
+@lru_cache(maxsize=100)
+def improve_speech(api_key, text):
+  if not text:
+     raise gr.Info("Record or type something!")
+
+  client = get_openai_client(api_key)
+  
+  system_message = {"role": "system", "content": SPEECH_IMPROVEMENT_PROMPT}
+  user_message = {"role": "user", "content": text}
+  messages = [system_message, user_message]
+
+  response = client.chat.completions.create(model="gpt-3.5-turbo", messages=messages)
+      
+  return response.choices[0].message.content
+
+@lru_cache(maxsize=100)
+def summarize_text(api_key, text, zoom_level):
+  if not text:
+     raise gr.Info("Type something!")
+
+  client = get_openai_client(api_key)
+  
+  system_message = {"role": "system", "content": SEMANTIC_ZOOM_PROMPT}
+  user_message = {"role": "user", "content": "Summary level: " + str(zoom_level) + "\n" + text}
+  messages = [system_message, user_message]
+
+  response = client.chat.completions.create(model="gpt-3.5-turbo", messages=messages)
+    
+  return response.choices[0].message.content
+
+@lru_cache(maxsize=100)
+def extract_wizdom(api_key, text):
+  if not text:
+     raise gr.Info("Type something!")
+
+  client = get_openai_client(api_key)
+  
+  system_message = {"role": "system", "content": EXTRACT_WIZDOM_PROMPT}
+  user_message = {"role": "user", "content": text}
+  messages = [system_message, user_message]
+  
+  response = client.chat.completions.create(model="gpt-3.5-turbo", messages=messages)
+    
+  return response.choices[0].message.content
 
 def recognize_speech(api_key, audio):
-  if not api_key:
-     raise gr.Error("Missing API Key!")
-
-  client = OpenAI(api_key=api_key)
-  try:
-     print(client.models.list())
-  except Exception as e:
-      print(str(e))
-      raise gr.Error("Invalid API Key.")
+  client = get_openai_client(api_key)
   
   if not audio:
     raise gr.Error("Missing record!")
@@ -28,79 +67,66 @@ def recognize_speech(api_key, audio):
   
   return transcript
 
-def improve_speech(api_key, speech):
-  if not speech:
-     raise gr.Info("Record or type something!")
-
+def get_openai_client(api_key):
   if not api_key:
      raise gr.Error("Missing API Key!")
 
   client = OpenAI(api_key=api_key)
   try:
-      print(client.models.list())
+    client.models.list()
   except Exception as e:
       print(str(e))
       raise gr.Error("Invalid API Key.")
   
-  prompt = [
-     {"role": "assistant", "content": 'You are a english expert. Improve my text. Make it simple, shorter and easy to understand.'}, 
-     {"role": "user", "content": speech}
-  ]
-
-  response = client.chat.completions.create(model="gpt-3.5-turbo", messages=prompt)
-  improved_speech = response.choices[0].message.content
-  
-  return improved_speech
-
-def diff_texts(text1, text2):
-    text1, text2 = remove_punctuation(text1), remove_punctuation(text2)
-
-    d = Differ()
-    return [
-        (token[2:], token[0] if token[0] != " " else None)
-        for token in d.compare(text1, text2)
-    ]
-
-def remove_punctuation(s):
-    return s.translate(str.maketrans('', '', string.punctuation))
+  return client
+ 
+########################## UI
+LEVELS = {
+  1: "Level 1: Headline Summary (10-20 words)",
+  2: "Level 2: Sentence-Level Summary (20-30 words)",
+  3: "Level 3: Paragraph Level-Summary (10-15 words per bullet point)",
+  4: "Level 4: One-Paragraph Summary (30-50 words)",
+  5: "Level 5: Executive Summary (50-80 words)",
+  6: "Level 6: Structured Summary (80-100 words)",
+  7: "Level 7: Detailed Summary (100-120 words)"
+}
 
 def toggle_main_col(api_key):
   if not api_key:
      return { main_col: gr.Column(visible=False)}
 
   return { main_col: gr.Column(visible=True)}
-   
-with gr.Blocks() as ui:
+    
+def zoom_level_changed(zoom_level):
+  return gr.Slider(1, 7, value=zoom_level, label=LEVELS[zoom_level], info="", interactive=True, step=1)
   
-  welcome = gr.Markdown(
-    """
-    # Speak UP! 
-        
-    Speak UP! is an interactive web application designed to help users enhance their speech delivery by leveraging the power of Large Language Models (LLMs). 
-    The app allows users to record their speech, transcribes the audio to text, then improves the text to be simpler, shorter, and easier to understand. 
-    Additionally, it provides a comparison between the original and improved texts, highlighting the changes made.
-
-    ## Features
-    - **Audio Recording**: Users can record their speech directly within the app using their device's microphone.
-    - **Speech Transcription**: The app transcribes the recorded speech to text using the OpenAI Whisper model.
-    - **Text Improvement**: Utilizes OpenAI's GPT models to refine the speech text, focusing on simplicity, brevity, and clarity.
-    - **Difference Highlighting**: Displays the differences between the original and improved texts, with changes clearly marked for easy review.
-
-    ## Requirements
-    - A valid OpenAI API key.
-    - A modern web browser with microphone access.
-    """)
+with gr.Blocks() as ui:
   
   api_key = gr.Textbox(label="OpenAI API key", placeholder="Enter you key...", lines=1, max_lines=1)
   
-  with gr.Column(visible=False) as main_col:
-    audio = gr.Audio(sources=["microphone"], type="filepath", label="Record your speech up to 30 sec")
-    transcript = gr.Textbox(label="Original Transcript:", lines=4)
-    improved_transcript = gr.Textbox(label="Improved Transcript:", lines=4)
-    text_diff = gr.HighlightedText(label="Diff", combine_adjacent=True, show_legend=True, color_map={"+": "red", "-": "green"})
-    
-    recognize_speech_button = gr.Button("Recognize Speech")
-    improve_speech_button = gr.Button("Improve Speech")
+  with gr.Tabs(visible=False) as main_col:
+
+    with gr.TabItem("Speech Enhancement"):
+      with gr.Column():
+        audio = gr.Audio(sources=["microphone"], type="filepath", label="Record your speech up to 30 sec")
+        transcript = gr.Textbox(label="Original Transcript:", lines=4)
+        improved_transcript = gr.Textbox(label="Improved Transcript:", lines=4)
+        text_diff = gr.HighlightedText(label="Diff", combine_adjacent=True, show_legend=True, color_map={"+": "red", "-": "green"})
+        recognize_speech_button = gr.Button("Recognize Speech")
+        improve_speech_button = gr.Button("Improve Speech")
+
+    with gr.TabItem("Semantic Zoom"):
+      with gr.Column():
+        input_text = gr.Textbox(label="Original Text:", lines=4)
+        zoom_level = gr.Slider(1, 7, value=1, label=LEVELS[1], interactive=True, step=1)
+        semantic_zoom_button = gr.Button("Summarize")
+        zoomed_text = gr.Markdown(label="Zoomed Text:")
+        
+    with gr.TabItem("Extract Wizdom"):
+      with gr.Column():
+        input_text_2 = gr.Textbox(label="Original Text:", lines=4)
+        extract_wizdom_button = gr.Button("Wizdomize")
+        wizdom_text = gr.Markdown(label="Zoomed Text:")
           
   # events
   api_key.change(toggle_main_col, inputs=[api_key], outputs=[main_col])
@@ -110,6 +136,11 @@ with gr.Blocks() as ui:
   
   transcript.change(diff_texts, inputs=[improved_transcript, transcript], outputs=[text_diff])
   improved_transcript.change(diff_texts, inputs=[improved_transcript, transcript], outputs=[text_diff])
+  
+  semantic_zoom_button.click(summarize_text, inputs=[api_key, input_text, zoom_level], outputs=[zoomed_text])
+  zoom_level.change(zoom_level_changed, inputs=[zoom_level], outputs=[zoom_level])
+  
+  extract_wizdom_button.click(extract_wizdom, inputs=[api_key, input_text_2], outputs=[wizdom_text])
 
 ui.queue(max_size=10)
 ui.launch()
