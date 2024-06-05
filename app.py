@@ -103,15 +103,20 @@ with gr.Blocks() as ui:
   api_key = gr.Textbox(label="OpenAI API key", placeholder="Enter you key...", lines=1, max_lines=1)
   
   with gr.Tabs(visible=False) as main_col:
-
     with gr.TabItem("Speech Enhancement"):
-      with gr.Column():
+      with gr.Row():
         audio = gr.Audio(sources=["microphone"], type="filepath", label="Record your speech up to 30 sec")
-        transcript = gr.Textbox(label="Original Transcript:", lines=4)
-        improved_transcript = gr.Textbox(label="Improved Transcript:", lines=4)
+      with gr.Row():
+        with gr.Column():
+          recognize_speech_button = gr.Button("1 - Recognize Speech")
+          improve_speech_button = gr.Button("2 - Improve Speech")
+      with gr.Row():
+        with gr.Column():
+          transcript = gr.Textbox(label="Original Transcript:", lines=4)
+        with gr.Column():
+          improved_transcript = gr.Textbox(label="Improved Transcript:", lines=4)
+      with gr.Row():           
         text_diff = gr.HighlightedText(label="Diff", combine_adjacent=True, show_legend=True, color_map={"+": "red", "-": "green"})
-        recognize_speech_button = gr.Button("Recognize Speech")
-        improve_speech_button = gr.Button("Improve Speech")
 
     with gr.TabItem("Semantic Zoom"):
       with gr.Column():
