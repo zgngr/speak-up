@@ -3,7 +3,7 @@ from openai import OpenAI
 from datetime import datetime
 from pydub import AudioSegment
 from functools import lru_cache
-from utils import diff_texts, remove_punctuation, SPEAK_UP_MARKDOWN
+from utils import diff_texts, remove_punctuation, count_lines_and_words
 from prompts import SEMANTIC_ZOOM_PROMPT, SPEECH_IMPROVEMENT_PROMPT, EXTRACT_WIZDOM_PROMPT
 
 @lru_cache(maxsize=100)
@@ -97,12 +97,17 @@ def toggle_main_col(api_key):
     
 def zoom_level_changed(zoom_level):
   return gr.Slider(1, 5, value=zoom_level, label=LEVELS[zoom_level], info="", interactive=True, step=1)
+
+def input_text_changed(text):
+  lines_count, workds_count = count_lines_and_words(text)
+  return gr.Textbox(label="Original Text:", lines=4, value=text, info=f'{lines_count} lines | {workds_count} words')
   
 with gr.Blocks() as ui:
   
   api_key = gr.Textbox(label="OpenAI API key", placeholder="Enter you key...", lines=1, max_lines=1)
   
   with gr.Tabs(visible=False) as main_col:
+    
     with gr.TabItem("Speech Enhancement"):
       with gr.Row():
         audio = gr.Audio(sources=["microphone"], type="filepath", label="Record your speech up to 30 sec")
@@ -144,6 +149,11 @@ with gr.Blocks() as ui:
   zoom_level.change(zoom_level_changed, inputs=[zoom_level], outputs=[zoom_level])
   
   extract_wizdom_button.click(extract_wizdom, inputs=[api_key, input_text_2], outputs=[wizdom_text])
-
+  
+  input_text.change(input_text_changed, inputs=[input_text], outputs=[input_text])
+  input_text_2.change(input_text_changed, inputs=[input_text_2], outputs=[input_text_2])
+  transcript.change(input_text_changed, inputs=[transcript], outputs=[transcript])
+  improved_transcript.change(input_text_changed, inputs=[improved_transcript], outputs=[improved_transcript])
+  
 ui.queue(max_size=10)
 ui.launch()

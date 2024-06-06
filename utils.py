@@ -31,3 +31,8 @@ def diff_texts(text1, text2):
 def remove_punctuation(s):
     return s.translate(str.maketrans('', '', string.punctuation))
 
+def count_lines_and_words(text):
+    lines = text.splitlines()
+    num_lines = len(lines)
+    num_words = sum(len(line.split()) for line in lines)
+    return num_lines, num_words
