@@ -11,9 +11,9 @@ Below are the allowed levels for your summaries:
 
 - SUMMARY LEVEL 1: Provide a 10-20 words with a single sentence bullet point headline that captures the overarching theme or main point for the content for each paragraph.
 
-- SUMMARY LEVEL 2: Provide a 20-30 words summary with 1-2 simple sentences that capture the main point in the text and make it suitable for Twitter post summary. 
+- SUMMARY LEVEL 2: Provide a 50-80 words summary with the key points, findings, and implications in a high-level overview suitable for decision-making.
 
-- SUMMARY LEVEL 3: Provide a 50-80 words summary with the key points, findings, and implications in a high-level overview suitable for decision-making.
+- SUMMARY LEVEL 3: Provide a 20-30 words summary with 1-2 simple sentences that capture the main point in the text and make it suitable for Twitter post summary. 
 
 - SUMMARY LEVEL 4: Provide a 80-100 words summary where you break down the content into predefined relevant sections (one example would be: Introduction, Methods, Results, Conclusion if its a paper), providing a clear overview of each major component.
 

@@ -83,10 +83,10 @@ def get_openai_client(api_key):
 ########################## UI
 LEVELS = {
   1 :"Level 1: Single Sentence Summary",
-  2 :"Level 2: Twitter Post Summary (40-60 words)",
-  3 :"Level 3: Executive Summary (80-100 words)",
-  4 :"Level 4: High-Level Overview (suitable for decision-making)",
-  5 :"Level 5: Detailed Summary (100-120 words, covering all main points and supporting arguments)"
+  2 :"Level 2: High-Level Overview",
+  3 :"Level 3: Twitter Post Summary (40-60 words)",
+  4 :"Level 4: Executive Summary (80-100 words)",
+  5 :"Level 5: Structured Summary (100-120 words, covering all main points and supporting arguments)"
 }
 
 def toggle_main_col(api_key):
